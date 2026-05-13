@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>會議室預約系統</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #fafafa;
+      color: #333;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1, h2 { margin: 0 0 10px 0; }
+
+    .room-card {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin: 5px;
+      display: inline-block;
+      width: 200px;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .section {
+      margin-top: 20px;
+      padding: 10px;
+      border-top: 2px solid #eee;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    label, input, select, button { font-size: 1rem; }
+
+    input, select {
+      width: 100%;
+      max-width: 320px;
+      padding: 8px;
+      margin: 6px 0;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    button {
+      cursor: pointer;
+      background: #2196F3;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+    }
+    button:hover { opacity: 0.85; }
+    button:active { opacity: 0.7; }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .filter-bar label { font-weight: bold; margin-right: 4px; }
+    .filter-bar input, .filter-bar select {
+      width: auto;
+      max-width: 200px;
+      margin: 0;
+    }
+
+    #timeline {
+      margin-top: 10px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .timeline-row {
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #eee;
+      padding: 10px;
+      min-height: 50px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .timeline-row:last-child { border-bottom: none; }
+    .timeline-row:hover { background: #f0f7ff; }
+
+    .timeline-time {
+      width: 60px;
+      font-weight: bold;
+      color: #555;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .timeline-items {
+      flex: 1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 28px;
+    }
+
+    .timeline-item {
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      cursor: default;
+    }
+    .timeline-item.active { background: #4CAF50; color: white; }
+    .timeline-item.upcoming { background: #2196F3; color: white; }
+    .timeline-item.ended { background: #9E9E9E; color: white; }
+
+    .timeline-add-hint {
+      color: #90CAF9;
+      font-size: 0.8rem;
+      font-style: italic;
+      display: inline-block;
+      padding: 2px 6px;
+    }
+
+    #result {
+      white-space: pre-wrap;
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 8px;
+      max-width: 100%;
+      overflow-x: auto;
+    }
+
+    #loading-indicator {
+      display: none;
+      color: #777;
+      font-style: italic;
+      margin: 8px 0;
+    }
+    #loading-indicator.visible { display: block; }
+
+    .booking-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px;
+      margin: 6px 0;
+      border-radius: 6px;
+      border-left: 6px solid #2196F3;
+    }
+    .booking-card.active { background: #E8F5E9; border-left-color: #4CAF50; }
+    .booking-card.upcoming { background: #E3F2FD; border-left-color: #2196F3; }
+    .booking-card.ended { background: #f0f0f0; border-left-color: #9E9E9E; }
+
+    .status-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: bold;
+    }
+    .status-badge.active { background: #4CAF50; color: white; }
+    .status-badge.upcoming { background: #2196F3; color: white; }
+    .status-badge.ended { background: #9E9E9E; color: white; }
+
+    /* 快速預約 toast 提示 */
+    .quick-toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 999;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .quick-toast.show { opacity: 1; }
+
+    /* 響應式 */
+    @media (max-width: 768px) {
+      body { padding: 10px; }
+      h1 { font-size: 1.4rem; }
+      h2 { font-size: 1.1rem; }
+      .room-card { width: 100%; margin: 5px 0; }
+      .booking-card { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .booking-card > div:last-child { align-self: flex-end; }
+      .timeline-row { padding: 8px 6px; min-height: 42px; }
+      .timeline-time { width: 40px; font-size: 0.85rem; }
+      .timeline-item { font-size: 0.8rem; padding: 3px 6px; }
+      .filter-bar { flex-direction: column; align-items: stretch; }
+      .filter-bar input, .filter-bar select { max-width: 100%; }
+      input, select { max-width: 100%; }
+    }
+    @media (max-width: 480px) {
+      .timeline-time { width: 32px; font-size: 0.75rem; }
+      .timeline-item { font-size: 0.75rem; }
+      button { padding: 8px 12px; font-size: 0.9rem; }
+    }
+
+    /* 列印樣式 */
+    @media print {
+      body { background: white; padding: 0; }
+      .section { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+      button { display: none !important; }
+      .timeline-row:hover { background: inherit; }
+      .quick-toast { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <h1>🏢 會議室預約系統 <small><a href="admin.html" style="font-size:0.7rem;color:#999;text-decoration:none;">⚙️ 管理</a></small></h1>
+
+  <div class="section">
+    <h2>📅 時間軸</h2>
+    <div class="filter-bar">
+      <label for="datePicker">日期：</label>
+      <input type="date" id="datePicker" />
+      <label for="roomFilter">會議室：</label>
+      <select id="roomFilter"><option value="">全部</option></select>
+    </div>
+    <div id="timeline"></div>
+  </div>
+
+  <div class="section">
+    <h2>📍 會議室</h2>
+    <div class="toolbar">
+      <button type="button" onclick="loadRooms()">🔄 重新整理</button>
+    </div>
+    <div id="rooms"></div>
+  </div>
+
+  <div class="section">
+    <h2>📅 建立 / 編輯預約 <span id="formMode" style="font-size:0.9rem;color:#777;">(新增模式)</span></h2>
+    <select id="roomSelect"></select>
+    <label for="user_name">使用者</label>
+    <input id="user_name" placeholder="使用者" />
+    <label for="start_time">開始時間</label>
+    <input id="start_time" type="datetime-local" />
+    <label for="end_time">結束時間</label>
+    <input id="end_time" type="datetime-local" />
+    <label for="purpose">用途</label>
+    <input id="purpose" placeholder="用途" />
+    <div class="toolbar">
+      <button type="button" id="saveBookingButton" onclick="createBooking()">📝 送出預約</button>
+      <button type="button" id="cancelEditButton" onclick="cancelEdit()" style="display:none;background:#777;">取消編輯</button>
+    </div>
+    <pre id="result"></pre>
+  </div>
+
+  <div class="section">
+    <h2>📋 預約列表</h2>
+    <div class="toolbar">
+      <button type="button" onclick="loadBookings()">🔄 重新載入</button>
+      <button type="button" onclick="exportCSV()">📥 匯出 CSV</button>
+      <button type="button" onclick="window.print()">🖨️ 列印</button>
+    </div>
+    <div id="loading-indicator">🔄 載入中...</div>
+    <div id="bookingList"></div>
+  </div>
+
+  <!-- 快速預約 toast -->
+  <div id="quickToast" class="quick-toast"></div>
+
+  <script>
+    const API = "http://127.0.0.1:8000";
+    let roomsCache = [];
+    let bookingsCache = [];
+    let selectedBookingId = null;
+
+    // ==================== 工具函數 ====================
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.appendChild(document.createTextNode(text));
+      return div.innerHTML;
+    }
+
+    function showToast(msg, duration = 2500) {
+      const el = document.getElementById('quickToast');
+      el.innerText = msg;
+      el.classList.add('show');
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => el.classList.remove('show'), duration);
+    }
+
+    function getStatus(booking) {
+      const now = new Date();
+      const start = new Date(booking.start_time);
+      const end = new Date(booking.end_time);
+      if (now >= start && now <= end) return 'active';
+      if (now < start) return 'upcoming';
+      return 'ended';
+    }
+
+    function getStatusText(s) {
+      if (s === 'active') return '進行中';
+      if (s === 'upcoming') return '即將開始';
+      return '已結束';
+    }
+
+    function getFilteredBookings() {
+      const selectedDate = document.getElementById('datePicker').value;
+      const roomId = parseInt(document.getElementById('roomFilter').value, 10);
+      return bookingsCache.filter(b => {
+        if (selectedDate) {
+          if (b.start_time.slice(0, 10) !== selectedDate) return false;
+        }
+        if (roomId && b.room_id !== roomId) return false;
+        return true;
+      });
+    }
+
+    function formatLocalDatetime(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      const h = String(date.getHours()).padStart(2, '0');
+      const min = String(date.getMinutes()).padStart(2, '0');
+      return `${y}-${m}-${d}T${h}:${min}`;
+    }
+
+    // ==================== 會議室 ====================
+
+    async function loadRooms() {
+      try {
+        const res = await fetch(`${API}/rooms`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        roomsCache = data;
+
+        const container = document.getElementById("rooms");
+        const select = document.getElementById("roomSelect");
+        const filterSelect = document.getElementById("roomFilter");
+        container.innerHTML = "";
+        select.innerHTML = "";
+        filterSelect.innerHTML = '<option value="">全部</option>';
+
+        data.forEach(r => {
+          container.innerHTML += `
+            <div class="room-card">
+              <b>${escapeHtml(r.name)}</b><br>
+              樓層：${escapeHtml(String(r.floor))}<br>
+              容量：${r.capacity}
+            </div>
+          `;
+          select.innerHTML += `<option value="${r.id}">${escapeHtml(r.name)} (${r.floor})</option>`;
+          filterSelect.innerHTML += `<option value="${r.id}">${escapeHtml(r.name)}</option>`;
+        });
+      } catch (err) {
+        document.getElementById("rooms").innerHTML = `<span style="color:red;">❌ 載入會議室失敗：${escapeHtml(err.message)}</span>`;
+      }
+    }
+
+    // ==================== 預約 CRUD ====================
+
+    function hasTimeConflict(roomId, startTime, endTime, excludeId = null) {
+      const start = new Date(startTime).getTime();
+      const end = new Date(endTime).getTime();
+      return bookingsCache.some(b => {
+        if (excludeId !== null && b.id === excludeId) return false;
+        if (b.room_id !== roomId) return false;
+        const bStart = new Date(b.start_time).getTime();
+        const bEnd = new Date(b.end_time).getTime();
+        return start < bEnd && end > bStart;
+      });
+    }
+
+    async function createBooking() {
+      const roomId = parseInt(document.getElementById("roomSelect").value, 10);
+      const userName = document.getElementById("user_name").value.trim();
+      const startTime = document.getElementById("start_time").value;
+      const endTime = document.getElementById("end_time").value;
+      const purpose = document.getElementById("purpose").value.trim();
+
+      if (!roomId || !userName || !startTime || !endTime || !purpose) {
+        document.getElementById("result").innerText = "請填寫所有欄位。";
+        return;
+      }
+
+      if (new Date(startTime) >= new Date(endTime)) {
+        document.getElementById("result").innerText = "開始時間必須早於結束時間。";
+        return;
+      }
+
+      const conflict = hasTimeConflict(roomId, startTime, endTime, selectedBookingId);
+      if (conflict) {
+        document.getElementById("result").innerText = "⚠️ 該時段已被預約，請選擇其他時間。";
+        return;
+      }
+
+      const body = {
+        room_id: roomId,
+        user_name: userName,
+        start_time: startTime,
+        end_time: endTime,
+        purpose: purpose
+      };
+
+      try {
+        let res;
+        if (selectedBookingId) {
+          res = await fetch(`${API}/bookings/${selectedBookingId}`, {
+            method: "PUT",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(body)
+          });
+        } else {
+          res = await fetch(`${API}/bookings`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(body)
+          });
+        }
+        const data = await res.json();
+        document.getElementById("result").innerText = data.error ? data.error : JSON.stringify(data, null, 2);
+
+        if (!data.error && res.ok) {
+          showToast(selectedBookingId ? '✅ 預約已更新' : '✅ 預約已建立');
+          await loadBookings();
+          clearBookingForm();
+        }
+      } catch (err) {
+        document.getElementById("result").innerText = "❌ 網路錯誤：" + err.message;
+      }
+    }
+
+    function clearBookingForm() {
+      selectedBookingId = null;
+      document.getElementById("roomSelect").selectedIndex = 0;
+      document.getElementById("user_name").value = "";
+      document.getElementById("start_time").value = "";
+      document.getElementById("end_time").value = "";
+      document.getElementById("purpose").value = "";
+      document.getElementById("formMode").innerText = "(新增模式)";
+      document.getElementById("saveBookingButton").innerText = "📝 送出預約";
+      document.getElementById("cancelEditButton").style.display = "none";
+    }
+
+    function startEditBooking(bookingId) {
+      const booking = bookingsCache.find(item => item.id === bookingId);
+      if (!booking) {
+        document.getElementById("result").innerText = "找不到要編輯的預約。";
+        return;
+      }
+      selectedBookingId = booking.id;
+      document.getElementById("roomSelect").value = booking.room_id;
+      document.getElementById("user_name").value = booking.user_name;
+      document.getElementById("start_time").value = booking.start_time.slice(0, 16);
+      document.getElementById("end_time").value = booking.end_time.slice(0, 16);
+      document.getElementById("purpose").value = booking.purpose;
+      document.getElementById("formMode").innerText = "(編輯模式)";
+      document.getElementById("saveBookingButton").innerText = "✏️ 更新預約";
+      document.getElementById("cancelEditButton").style.display = "inline-block";
+      document.getElementById("result").innerText = "";
+    }
+
+    function cancelEdit() {
+      clearBookingForm();
+    }
+
+    async function deleteBooking(bookingId) {
+      const booking = bookingsCache.find(b => b.id === bookingId);
+      const name = booking ? booking.user_name : '此';
+      if (!confirm(`⚠️ 確定要刪除「${escapeHtml(name)}」的預約嗎？\n此操作無法還原。`)) {
+        return;
+      }
+      try {
+        const res = await fetch(`${API}/bookings/${bookingId}`, {
+          method: "DELETE"
+        });
+        const data = await res.json();
+        document.getElementById("result").innerText = data.error ? data.error : JSON.stringify(data, null, 2);
+
+        if (!data.error && res.ok) {
+          showToast('🗑️ 預約已刪除');
+          await loadBookings();
+        }
+      } catch (err) {
+        document.getElementById("result").innerText = "❌ 網路錯誤：" + err.message;
+      }
+    }
+
+    // ==================== 快速預約（點時間軸）====================
+
+    function quickAddBooking(hour) {
+      const roomId = parseInt(document.getElementById('roomFilter').value, 10);
+      if (!roomId) {
+        showToast('⚠️ 請先在上方篩選器選擇會議室', 3000);
+        return;
+      }
+      const date = document.getElementById('datePicker').value;
+      if (!date) {
+        showToast('⚠️ 請先選擇日期', 3000);
+        return;
+      }
+
+      const startStr = `${date}T${String(hour).padStart(2, '0')}:00`;
+      const endStr = `${date}T${String(hour + 1).padStart(2, '0')}:00`;
+
+      // 檢查衝突
+      if (hasTimeConflict(roomId, startStr, endStr)) {
+        showToast('⚠️ 此時段已有預約，請選擇其他時間', 3000);
+        return;
+      }
+
+      // 填表並滾動到表單
+      document.getElementById("roomSelect").value = roomId;
+      document.getElementById("start_time").value = startStr;
+      document.getElementById("end_time").value = endStr;
+      document.getElementById("user_name").focus();
+
+      document.querySelector('.section:nth-of-type(3)').scrollIntoView({ behavior: 'smooth' });
+      showToast(`⏰ 已填入 ${hour}:00 ~ ${hour + 1}:00，請填寫使用者與用途`, 3500);
+    }
+
+    // ==================== 匯出 CSV ====================
+
+    function exportCSV() {
+      const filtered = getFilteredBookings();
+      if (filtered.length === 0) {
+        showToast('📭 沒有可匯出的預約資料', 2000);
+        return;
+      }
+
+      const rows = [['會議室', '使用者', '開始時間', '結束時間', '用途', '狀態']];
+      filtered.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+      filtered.forEach(b => {
+        const room = roomsCache.find(r => r.id === b.room_id);
+        const roomName = room ? room.name : b.room_id;
+        rows.push([
+          roomName,
+          b.user_name,
+          b.start_time,
+          b.end_time,
+          b.purpose,
+          getStatusText(getStatus(b))
+        ]);
+      });
+
+      const csv = rows.map(r =>
+        r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
+      ).join('\n');
+
+      const bom = '\uFEFF';
+      const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `會議室預約_${document.getElementById('datePicker').value || '全部'}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast('📥 CSV 已下載');
+    }
+
+    // ==================== 載入 & 渲染預約 ====================
+
+    async function loadBookings() {
+      const indicator = document.getElementById("loading-indicator");
+      indicator.classList.add("visible");
+      try {
+        const res = await fetch(`${API}/bookings`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        bookingsCache = data;
+        renderBookings();
+        renderTimeline();
+      } catch (err) {
+        document.getElementById("bookingList").innerHTML = `<span style="color:red;">❌ 載入預約失敗：${escapeHtml(err.message)}</span>`;
+      } finally {
+        indicator.classList.remove("visible");
+      }
+    }
+
+    function renderBookings() {
+      const container = document.getElementById("bookingList");
+      container.innerHTML = "";
+      const filtered = getFilteredBookings();
+      filtered.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div style="color:#999;padding:10px;">📭 無符合條件的預約</div>';
+        return;
+      }
+
+      filtered.forEach(b => {
+        const start = new Date(b.start_time);
+        const end = new Date(b.end_time);
+        const startStr = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const endStr = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const room = roomsCache.find(r => r.id === b.room_id);
+        const roomLabel = room ? `${room.name} (${room.floor})` : b.room_id;
+        const status = getStatus(b);
+        const statusText = getStatusText(status);
+
+        container.innerHTML += `
+          <div class="booking-card ${status}">
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:bold;">
+                ${startStr} - ${endStr}
+                <span class="status-badge ${status}">${statusText}</span>
+              </div>
+              <div><b>🏢 Room：</b>${roomLabel}</div>
+              <div><b>👤 User：</b>${escapeHtml(b.user_name)}</div>
+              <div><b>📌 Purpose：</b>${escapeHtml(b.purpose)}</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button type="button" data-booking-id="${b.id}" class="edit-btn" style="background:#4CAF50;">編輯</button>
+              <button type="button" data-booking-id="${b.id}" class="delete-btn" style="background:#f44336;">刪除</button>
+            </div>
+          </div>
+        `;
+      });
+
+      if (!container._delegationBound) {
+        container._delegationBound = true;
+        container.addEventListener('click', async (e) => {
+          const btn = e.target.closest('button');
+          if (!btn) return;
+          const bookingId = parseInt(btn.dataset.bookingId, 10);
+          if (btn.classList.contains('edit-btn')) {
+            startEditBooking(bookingId);
+          } else if (btn.classList.contains('delete-btn')) {
+            await deleteBooking(bookingId);
+          }
+        });
+      }
+    }
+
+    // ==================== 時間軸 ====================
+
+    function renderTimeline() {
+      const container = document.getElementById("timeline");
+      container.innerHTML = "";
+      const filtered = getFilteredBookings();
+      const hours = Array.from({ length: 24 }, (_, i) => i);
+
+      hours.forEach(hour => {
+        const row = document.createElement("div");
+        row.className = "timeline-row";
+        row.title = "點擊快速預約此時段";
+        row.addEventListener('click', () => quickAddBooking(hour));
+
+        const label = document.createElement("div");
+        label.className = "timeline-time";
+        label.innerText = `${hour}:00`;
+
+        const items = document.createElement("div");
+        items.className = "timeline-items";
+
+        const hourItems = filtered.filter(b => {
+          const start = new Date(b.start_time);
+          const end = new Date(b.end_time);
+          return start.getHours() <= hour && end.getHours() > hour;
+        });
+
+        if (hourItems.length === 0) {
+          const hint = document.createElement("span");
+          hint.className = "timeline-add-hint";
+          hint.innerText = "+ 點此新增";
+          items.appendChild(hint);
+        }
+
+        hourItems.forEach(b => {
+          const start = new Date(b.start_time);
+          const end = new Date(b.end_time);
+          const status = getStatus(b);
+          const item = document.createElement("div");
+          item.className = `timeline-item ${status}`;
+          item.title = `${b.user_name} - ${b.purpose}`;
+          item.innerText = `${b.user_name} (${start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+          items.appendChild(item);
+        });
+
+        row.appendChild(label);
+        row.appendChild(items);
+        container.appendChild(row);
+      });
+    }
+
+    // ==================== 初始化 ====================
+
+    function setDefaultDate() {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      document.getElementById('datePicker').value = `${yyyy}-${mm}-${dd}`;
+    }
+
+    document.getElementById('datePicker').addEventListener('change', () => {
+      renderBookings();
+      renderTimeline();
+    });
+    document.getElementById('roomFilter').addEventListener('change', () => {
+      renderBookings();
+      renderTimeline();
+    });
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      setDefaultDate();
+      await loadRooms();
+      await loadBookings();
+    });
+  </script>
+</body>
+</html>

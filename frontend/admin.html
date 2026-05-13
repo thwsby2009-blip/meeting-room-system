@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理後台 — 會議室預約系統</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f0f0f0;
+      color: #333;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1, h2 { margin: 0 0 10px 0; }
+    h1 { display: flex; align-items: center; gap: 12px; }
+    h1 small { font-size: 0.7rem; font-weight: normal; }
+
+    .section {
+      margin-top: 20px;
+      padding: 15px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .section-header h2 { margin: 0; }
+
+    label, input, select, button { font-size: 1rem; }
+
+    input, select {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      width: 100%;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      transition: opacity 0.15s;
+    }
+    button:hover { opacity: 0.85; }
+    button.primary { background: #2196F3; color: white; }
+    button.success { background: #4CAF50; color: white; }
+    button.danger { background: #f44336; color: white; }
+    button.secondary { background: #757575; color: white; }
+    button.warning { background: #FF9800; color: white; }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+    .form-grid label {
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #555;
+      display: block;
+      margin-bottom: 2px;
+    }
+    .form-grid button { height: 38px; align-self: end; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 10px 8px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    th {
+      background: #fafafa;
+      font-weight: bold;
+      color: #555;
+      position: sticky;
+      top: 0;
+    }
+    tr:hover { background: #f5f5f5; }
+    .actions { white-space: nowrap; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+    .badge.active { background: #4CAF50; color: white; }
+    .badge.upcoming { background: #2196F3; color: white; }
+    .badge.ended { background: #9E9E9E; color: white; }
+
+    #result {
+      white-space: pre-wrap;
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 10px;
+      font-size: 0.85rem;
+    }
+    #result.success { border-left: 4px solid #4CAF50; background: #E8F5E9; }
+    #result.error { border-left: 4px solid #f44336; background: #FFEBEE; }
+
+    .nav-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+      padding: 10px 0;
+      border-bottom: 2px solid #ddd;
+    }
+    .nav-bar a {
+      color: #2196F3;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .nav-bar a:hover { text-decoration: underline; }
+    .nav-bar .title { font-size: 1.2rem; font-weight: bold; flex: 1; }
+
+    .empty-state { color: #999; padding: 20px; text-align: center; }
+    .count-badge {
+      background: #2196F3;
+      color: white;
+      font-size: 0.75rem;
+      padding: 1px 8px;
+      border-radius: 10px;
+      margin-left: 6px;
+    }
+
+    .edit-row td { padding: 4px 8px; }
+    .edit-row input, .edit-row select { font-size: 0.85rem; padding: 4px 8px; }
+
+    @media (max-width: 768px) {
+      body { padding: 10px; }
+      .form-grid { grid-template-columns: 1fr; }
+      table { font-size: 0.8rem; }
+      th, td { padding: 6px 4px; }
+      h1 { font-size: 1.3rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="nav-bar">
+    <span class="title">🔧 管理後台</span>
+    <a href="index.html">⬅ 返回預約系統</a>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2>🏢 會議室管理</h2>
+      <span id="roomCount" class="count-badge">0</span>
+    </div>
+
+    <div class="form-grid" style="margin-bottom:15px;">
+      <div>
+        <label for="roomName">會議室名稱</label>
+        <input id="roomName" placeholder="e.g. 小型會議室" />
+      </div>
+      <div>
+        <label for="roomFloor">樓層</label>
+        <input id="roomFloor" placeholder="e.g. 3F" />
+      </div>
+      <div>
+        <label for="roomCapacity">容納人數</label>
+        <input id="roomCapacity" type="number" min="1" value="10" />
+      </div>
+      <button id="roomSubmitBtn" class="primary" onclick="submitRoom()">➕ 新增會議室</button>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>名稱</th>
+            <th>樓層</th>
+            <th>容量</th>
+            <th>預約數</th>
+            <th class="actions">操作</th>
+          </tr>
+        </thead>
+        <tbody id="roomTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <h2>📋 所有預約總覽</h2>
+      <div class="toolbar">
+        <span id="bookingCount" class="count-badge">0</span>
+        <button class="secondary" onclick="loadAll()">🔄 重新載入</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>會議室</th>
+            <th>使用者</th>
+            <th>開始時間</th>
+            <th>結束時間</th>
+            <th>用途</th>
+            <th>狀態</th>
+            <th class="actions">操作</th>
+          </tr>
+        </thead>
+        <tbody id="bookingTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="result"></div>
+
+  <script>
+    const API = "http://127.0.0.1:8000";
+    let roomsCache = [];
+    let bookingsCache = [];
+    let editingRoomId = null;
+
+    // ==================== 工具 ====================
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.appendChild(document.createTextNode(text));
+      return div.innerHTML;
+    }
+
+    function showResult(msg, type) {
+      const el = document.getElementById('result');
+      el.className = type || '';
+      el.innerText = msg;
+    }
+
+    function getStatus(booking) {
+      const now = new Date();
+      const start = new Date(booking.start_time);
+      const end = new Date(booking.end_time);
+      if (now >= start && now <= end) return 'active';
+      if (now < start) return 'upcoming';
+      return 'ended';
+    }
+
+    function getStatusText(s) {
+      if (s === 'active') return '進行中';
+      if (s === 'upcoming') return '即將開始';
+      return '已結束';
+    }
+
+    function formatDT(dt) {
+      const d = new Date(dt);
+      return d.toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function getBookingCountForRoom(roomId) {
+      return bookingsCache.filter(b => b.room_id === roomId).length;
+    }
+
+    // ==================== 會議室 CRUD ====================
+
+    function submitRoom() {
+      const name = document.getElementById('roomName').value.trim();
+      const floor = document.getElementById('roomFloor').value.trim();
+      const capacity = parseInt(document.getElementById('roomCapacity').value, 10);
+
+      if (!name || !floor || !capacity) {
+        showResult('請填寫所有欄位', 'error');
+        return;
+      }
+
+      if (editingRoomId) {
+        updateRoom(editingRoomId, name, floor, capacity);
+      } else {
+        createRoom(name, floor, capacity);
+      }
+    }
+
+    async function createRoom(name, floor, capacity) {
+      try {
+        const res = await fetch(`${API}/rooms`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, floor, capacity })
+        });
+        const data = await res.json();
+        if (data.error) {
+          showResult('❌ ' + data.error, 'error');
+        } else {
+          showResult(`✅ 會議室「${data.name}」已建立`, 'success');
+          clearRoomForm();
+          await loadAll();
+        }
+      } catch (err) {
+        showResult('❌ 網路錯誤：' + err.message, 'error');
+      }
+    }
+
+    async function updateRoom(roomId, name, floor, capacity) {
+      try {
+        const res = await fetch(`${API}/rooms/${roomId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, floor, capacity })
+        });
+        const data = await res.json();
+        if (data.error) {
+          showResult('❌ ' + data.error, 'error');
+        } else {
+          showResult(`✅ 會議室已更新`, 'success');
+          clearRoomForm();
+          await loadAll();
+        }
+      } catch (err) {
+        showResult('❌ 網路錯誤：' + err.message, 'error');
+      }
+    }
+
+    function startEditRoom(roomId) {
+      const room = roomsCache.find(r => r.id === roomId);
+      if (!room) return;
+      editingRoomId = room.id;
+      document.getElementById('roomName').value = room.name;
+      document.getElementById('roomFloor').value = room.floor;
+      document.getElementById('roomCapacity').value = room.capacity;
+      document.getElementById('roomSubmitBtn').innerText = '✏️ 更新會議室';
+      document.getElementById('roomSubmitBtn').className = 'warning';
+      showResult(`正在編輯「${room.name}」，修改後點「更新會議室」`, 'success');
+    }
+
+    function clearRoomForm() {
+      editingRoomId = null;
+      document.getElementById('roomName').value = '';
+      document.getElementById('roomFloor').value = '';
+      document.getElementById('roomCapacity').value = '10';
+      document.getElementById('roomSubmitBtn').innerText = '➕ 新增會議室';
+      document.getElementById('roomSubmitBtn').className = 'primary';
+    }
+
+    async function deleteRoom(roomId) {
+      const room = roomsCache.find(r => r.id === roomId);
+      const count = getBookingCountForRoom(roomId);
+      let msg = `⚠️ 確定要刪除會議室「${room ? room.name : roomId}」嗎？`;
+      if (count > 0) msg += `\n該會議室有 ${count} 筆預約紀錄，也會一併刪除。`;
+      if (!confirm(msg)) return;
+
+      try {
+        const res = await fetch(`${API}/rooms/${roomId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.error) {
+          showResult('❌ ' + data.error, 'error');
+        } else {
+          showResult('✅ 會議室已刪除', 'success');
+          await loadAll();
+        }
+      } catch (err) {
+        showResult('❌ 網路錯誤：' + err.message, 'error');
+      }
+    }
+
+    // ==================== 預約管理 ====================
+
+    async function deleteBooking(bookingId) {
+      if (!confirm('⚠️ 確定要刪除此預約嗎？（管理員權限）')) return;
+      try {
+        const res = await fetch(`${API}/bookings/${bookingId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.error) {
+          showResult('❌ ' + data.error, 'error');
+        } else {
+          showResult('✅ 預約已刪除', 'success');
+          await loadAll();
+        }
+      } catch (err) {
+        showResult('❌ 網路錯誤：' + err.message, 'error');
+      }
+    }
+
+    // ==================== 載入 & 渲染 ====================
+
+    async function loadAll() {
+      try {
+        const [roomsRes, bookingsRes] = await Promise.all([
+          fetch(`${API}/rooms`),
+          fetch(`${API}/bookings`)
+        ]);
+        roomsCache = await roomsRes.json();
+        bookingsCache = await bookingsRes.json();
+        renderRooms();
+        renderBookings();
+      } catch (err) {
+        showResult('❌ 載入失敗：' + err.message, 'error');
+      }
+    }
+
+    function renderRooms() {
+      const tbody = document.getElementById('roomTableBody');
+      tbody.innerHTML = '';
+      document.getElementById('roomCount').innerText = roomsCache.length;
+
+      if (roomsCache.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">📭 尚無會議室</td></tr>';
+        return;
+      }
+
+      roomsCache.forEach(r => {
+        const count = getBookingCountForRoom(r.id);
+        tbody.innerHTML += `
+          <tr>
+            <td>${r.id}</td>
+            <td><b>${escapeHtml(r.name)}</b></td>
+            <td>${escapeHtml(r.floor)}</td>
+            <td>${r.capacity} 人</td>
+            <td>${count}</td>
+            <td class="actions">
+              <button class="success" onclick="startEditRoom(${r.id})">編輯</button>
+              <button class="danger" onclick="deleteRoom(${r.id})">刪除</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function renderBookings() {
+      const tbody = document.getElementById('bookingTableBody');
+      tbody.innerHTML = '';
+      document.getElementById('bookingCount').innerText = bookingsCache.length;
+
+      if (bookingsCache.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">📭 尚無預約資料</td></tr>';
+        return;
+      }
+
+      bookingsCache
+        .slice()
+        .sort((a, b) => new Date(b.start_time) - new Date(a.start_time))
+        .forEach(b => {
+          const room = roomsCache.find(r => r.id === b.room_id);
+          const roomLabel = room ? `${room.name} (${room.floor})` : `ID:${b.room_id}`;
+          const status = getStatus(b);
+          const statusText = getStatusText(status);
+
+          tbody.innerHTML += `
+            <tr>
+              <td>${b.id}</td>
+              <td>${escapeHtml(roomLabel)}</td>
+              <td>${escapeHtml(b.user_name)}</td>
+              <td>${formatDT(b.start_time)}</td>
+              <td>${formatDT(b.end_time)}</td>
+              <td>${escapeHtml(b.purpose)}</td>
+              <td><span class="badge ${status}">${statusText}</span></td>
+              <td class="actions">
+                <button class="danger" onclick="deleteBooking(${b.id})">刪除</button>
+              </td>
+            </tr>
+          `;
+        });
+    }
+
+    // 按 ESC 取消編輯
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && editingRoomId) clearRoomForm();
+    });
+
+    window.addEventListener('DOMContentLoaded', loadAll);
+  </script>
+</body>
+</html>
