@@ -13,7 +13,7 @@ PythonAnywhere 設定步驟：
 import sys
 
 # 把後端目錄加入 Python 路徑
-path = '/home/你的帳號/meeting-room-system/backend'
+path = '/home/thwsby/meeting-room-system/backend'
 if path not in sys.path:
     sys.path.insert(0, path)
 
